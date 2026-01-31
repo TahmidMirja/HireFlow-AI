@@ -108,7 +108,6 @@ const Generator: React.FC<GeneratorProps> = ({ user, onAssetCreated }) => {
   };
 
   const extractPdfData = async (res: any) => {
-    // Case 1: n8n returns a direct binary Blob
     if (res instanceof Blob) {
       const textSample = await res.slice(0, 100).text();
       if (textSample.trim().startsWith('{')) {
@@ -129,7 +128,6 @@ const Generator: React.FC<GeneratorProps> = ({ user, onAssetCreated }) => {
       return URL.createObjectURL(res);
     }
     
-    // Case 2: n8n returns JSON with a base64 field
     const findBinaryString = (obj: any): string | null => {
       if (!obj) return null;
       if (typeof obj === 'string' && obj.length > 200) {
@@ -172,12 +170,14 @@ const Generator: React.FC<GeneratorProps> = ({ user, onAssetCreated }) => {
         base64Resume = await fileToBase64(resumeFile);
       }
 
+      // Re-apply strict anti-markdown rules to prompts sent to n8n
       const response = await generateViaMaincore({
         ...formData,
         action: 'maincore',
         type: type,
         resumeAttachment: base64Resume,
-        resumeFileName: resumeFile?.name || 'none'
+        resumeFileName: resumeFile?.name || 'none',
+        strict_html_rule: "Output ONLY raw HTML. ABSOLUTELY NO markdown code blocks, backticks, or 'html' text tags."
       });
       
       const url = await extractPdfData(response);
@@ -186,10 +186,10 @@ const Generator: React.FC<GeneratorProps> = ({ user, onAssetCreated }) => {
         setStep(3);
         onAssetCreated();
       } else if (!error) {
-        setError('The server failed to return a valid PDF. Check your n8n workflow output.');
+        setError('The server failed to return a valid PDF.');
       }
     } catch (err: any) {
-      setError(err.message || 'Synthesis server timed out. Ensure n8n is active.');
+      setError(err.message || 'Synthesis server timed out.');
     } finally {
       setIsGenerating(false);
     }
@@ -212,7 +212,6 @@ const Generator: React.FC<GeneratorProps> = ({ user, onAssetCreated }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-12 md:py-24 animate-reveal">
-      {/* STEP INDICATOR */}
       <div className="mb-16 flex justify-center items-center space-x-6 no-print">
         {[1, 2, 3].map(s => (
           <React.Fragment key={s}>
@@ -246,223 +245,75 @@ const Generator: React.FC<GeneratorProps> = ({ user, onAssetCreated }) => {
 
       {step === 2 && (
         <div className="animate-reveal space-y-10">
-          {type === 'cover_letter' ? (
-            /* COVER LETTER ARCHITECT FORM */
-            <div className="bg-white p-12 md:p-20 rounded-[4.5rem] shadow-2xl border border-slate-50">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-16">
+          <div className="bg-white p-12 md:p-20 rounded-[4.5rem] shadow-2xl border border-slate-50">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-16">
+              <div className="xl:col-span-5 space-y-10">
+                <div className="space-y-2">
+                  <h4 className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-600">Personal & Contact Identity</h4>
+                  <p className="text-[11px] font-bold text-slate-400">Essential for your professional asset.</p>
+                </div>
                 
-                {/* LEFT COLUMN: PERSONAL INFO */}
-                <div className="xl:col-span-5 space-y-10">
-                  <div className="space-y-2">
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-600">Personal & Contact Identity</h4>
-                    <p className="text-[11px] font-bold text-slate-400">Essential for your professional cover letter.</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Full Name</label>
-                      <input name="fullName" value={formData.fullName} onChange={handleInputChange} placeholder="Tahmid Mirja" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Email Address</label>
-                      <input name="email" value={formData.email} onChange={handleInputChange} placeholder="name@domain.com" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Phone Number</label>
-                      <input name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+880..." className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">City & Country</label>
-                      <input name="city" value={formData.city} onChange={handleInputChange} placeholder="Dhaka, Bangladesh" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Full Mailing Address</label>
-                    <input name="address" value={formData.address} onChange={handleInputChange} placeholder="House #, Road #, Area, Post Code" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
+                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Full Name</label>
+                    <input name="fullName" value={formData.fullName} onChange={handleInputChange} placeholder="Tahmid Mirja" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
                   </div>
-
-                  <div className="bg-indigo-600/10 p-10 rounded-[2.5rem] border border-indigo-100/50">
-                    <h5 className="text-[10px] font-black text-indigo-700 uppercase tracking-[0.3em] mb-4">Pro Synthesis Tip</h5>
-                    <p className="text-[11px] font-bold text-indigo-900 leading-relaxed uppercase tracking-tight opacity-70">
-                      "A tailored narrative increases success rates. If artifacts appear, try refining your Job Posting text to be cleaner."
-                    </p>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Email Address</label>
+                    <input name="email" value={formData.email} onChange={handleInputChange} placeholder="name@domain.com" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
                   </div>
                 </div>
 
-                {/* RIGHT COLUMN: JOB INFO */}
-                <div className="xl:col-span-7 space-y-10">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Job Title</label>
-                      <input name="jobTitle" value={formData.jobTitle} onChange={handleInputChange} placeholder="Senior Software Engineer" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Company</label>
-                      <input name="companyName" value={formData.companyName} onChange={handleInputChange} placeholder="Google / Microsoft" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Job Post Description</label>
-                    <textarea name="jobPosting" value={formData.jobPosting} onChange={handleInputChange} placeholder="Paste the full job ad here." className="w-full h-64 px-7 py-5 bg-slate-50 border border-slate-100 rounded-[2.5rem] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-slate-700 resize-none shadow-inner leading-relaxed" />
+                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Phone Number</label>
+                    <input name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+880..." className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
                   </div>
-
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Resume Text Form (Optional)</label>
-                    <textarea name="resumeText" value={formData.resumeText} onChange={handleInputChange} placeholder="Optionally paste additional resume text for deeper context." className="w-full h-40 px-7 py-5 bg-slate-50 border border-slate-100 rounded-[2.5rem] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-slate-700 resize-none shadow-inner leading-relaxed" />
+                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">City & Country</label>
+                    <input name="city" value={formData.city} onChange={handleInputChange} placeholder="Dhaka, Bangladesh" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
                   </div>
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-4">
-                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Resume Attachment (Reference PDF)</label>
-                        <div onClick={() => fileInputRef.current?.click()} className={`w-full py-6 border border-dashed border-slate-200 rounded-[1.5rem] flex flex-col items-center justify-center cursor-pointer transition-all bg-slate-50/50 hover:bg-slate-50 ${resumeFile ? 'border-indigo-400 bg-indigo-50/10' : ''}`}>
-                          <input type="file" ref={fileInputRef} onChange={(e) => setResumeFile(e.target.files?.[0] || null)} className="hidden" accept=".pdf" />
-                          <span className={`text-[9px] font-black uppercase tracking-widest ${resumeFile ? 'text-indigo-600' : 'text-slate-400'}`}>
-                            {resumeFile ? `Selected: ${resumeFile.name}` : 'Click to Upload PDF'}
-                          </span>
-                        </div>
-                     </div>
-                     <div className="bg-indigo-600 p-6 rounded-[2rem] shadow-xl text-white flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center font-black text-sm">AI</div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest leading-none">Smart Synthesis Active</p>
-                          <p className="text-[9px] font-bold mt-1.5 uppercase tracking-tight opacity-70">Tailoring Narrative</p>
-                        </div>
-                     </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Full Mailing Address</label>
+                  <input name="address" value={formData.address} onChange={handleInputChange} placeholder="House #, Road #, Area" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
+                </div>
+              </div>
+
+              <div className="xl:col-span-7 space-y-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Job Title</label>
+                    <input name="jobTitle" value={formData.jobTitle} onChange={handleInputChange} placeholder="Senior Software Engineer" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
                   </div>
-
-                  {error && <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 font-bold text-[10px] uppercase tracking-widest text-center shadow-sm">{error}</div>}
-
-                  <div className="pt-10 flex flex-col items-center gap-6">
-                    <button onClick={handleGenerate} disabled={isGenerating} className={`w-full max-w-md py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-2xl hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center justify-center ${isGenerating ? 'opacity-50 grayscale' : ''}`}>
-                      {isGenerating ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                          Architecting...
-                        </>
-                      ) : 'Synthesize Cover Letter'}
-                    </button>
-                    <button onClick={() => setStep(1)} className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 hover:text-slate-900 transition-colors">Abort & Return</button>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Company</label>
+                    <input name="companyName" value={formData.companyName} onChange={handleInputChange} placeholder="Google / Microsoft" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
                   </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Job Post Description</label>
+                  <textarea name="jobPosting" value={formData.jobPosting} onChange={handleInputChange} placeholder="Paste the full job ad here." className="w-full h-48 px-7 py-5 bg-slate-50 border border-slate-100 rounded-[2.5rem] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-slate-700 resize-none shadow-inner leading-relaxed" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">{type === 'cover_letter' ? 'Resume Reference Text' : 'Professional Background Data'}</label>
+                  <textarea name="resumeText" value={formData.resumeText} onChange={handleInputChange} placeholder="Input all your details here." className="w-full h-48 px-7 py-5 bg-slate-50 border border-slate-100 rounded-[2.5rem] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-slate-700 resize-none shadow-inner leading-relaxed" />
+                </div>
+
+                {error && <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 font-bold text-[10px] uppercase tracking-widest text-center shadow-sm">{error}</div>}
+
+                <div className="pt-10 flex flex-col items-center gap-6">
+                  <button onClick={handleGenerate} disabled={isGenerating} className={`w-full max-w-md py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-2xl hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center justify-center ${isGenerating ? 'opacity-50 grayscale' : ''}`}>
+                    {isGenerating ? 'Architecting...' : 'Synthesize Asset'}
+                  </button>
+                  <button onClick={() => setStep(1)} className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 hover:text-slate-900 transition-colors">Abort & Return</button>
                 </div>
               </div>
             </div>
-          ) : (
-            /* RESUME ARCHITECT FORM - UNCHANGED AS REQUESTED */
-            <div className="bg-white p-12 md:p-20 rounded-[4.5rem] shadow-2xl border border-slate-50">
-              <div className="grid grid-cols-1 xl:grid-cols-12 gap-16">
-                
-                {/* LEFT COLUMN: PERSONAL INFO & CHECKLIST */}
-                <div className="xl:col-span-5 space-y-10">
-                  <div className="space-y-2">
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.4em] text-indigo-600">Personal & Contact Identity</h4>
-                    <p className="text-[11px] font-bold text-slate-400">Essential for your official professional profile.</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Full Name</label>
-                      <input name="fullName" value={formData.fullName} onChange={handleInputChange} placeholder="Tahmid Mirja" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Email Address</label>
-                      <input name="email" value={formData.email} onChange={handleInputChange} placeholder="name@domain.com" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Phone Number</label>
-                      <input name="phone" value={formData.phone} onChange={handleInputChange} placeholder="+880..." className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">City & Country</label>
-                      <input name="city" value={formData.city} onChange={handleInputChange} placeholder="Dhaka, Bangladesh" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Full Mailing Address</label>
-                    <input name="address" value={formData.address} onChange={handleInputChange} placeholder="House #, Road #, Area, Post Code" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                  </div>
-
-                  <div className="bg-[#0f172a] p-10 rounded-[2.5rem] shadow-2xl relative overflow-hidden text-white">
-                     <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-                     <div className="flex items-center gap-4 relative z-10 mb-8">
-                        <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black shadow-lg">9</div>
-                        <h4 className="text-xs font-black uppercase tracking-widest">Master Resume Checklist</h4>
-                     </div>
-                     <div className="space-y-3.5 text-[9px] font-bold text-slate-300 leading-relaxed uppercase tracking-widest relative z-10">
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">1.</span> Portfolio Links (LinkedIn/GitHub)</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">2.</span> Professional Summary (2-3 Sentences)</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">3.</span> Work History (Roles & Achievements)</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">4.</span> Education (Degrees & Institution)</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">5.</span> Skills (Technical & Soft Skills)</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">6.</span> Notable Projects & Your Role</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">7.</span> Training & Certifications</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">8.</span> Languages & Proficiency</p>
-                        <p className="flex items-start gap-3"><span className="text-indigo-400 font-black">9.</span> Volunteer & Achievements</p>
-                     </div>
-                  </div>
-                </div>
-
-                {/* RIGHT COLUMN: JOB INFO & TEXT AREAS */}
-                <div className="xl:col-span-7 space-y-10">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Job Title</label>
-                      <input name="jobTitle" value={formData.jobTitle} onChange={handleInputChange} placeholder="Senior Software Engineer" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Company</label>
-                      <input name="companyName" value={formData.companyName} onChange={handleInputChange} placeholder="Google / Microsoft" className="w-full px-6 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-bold text-slate-900" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Professional Background & Profile Data</label>
-                    <textarea name="resumeText" value={formData.resumeText} onChange={handleInputChange} placeholder="Input all your details here (Experience, Education, Skills, etc.)." className="w-full h-[380px] px-7 py-5 bg-slate-50 border border-slate-100 rounded-[2.5rem] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-slate-700 resize-none shadow-inner leading-relaxed" />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Target Job Description</label>
-                    <textarea name="jobPosting" value={formData.jobPosting} onChange={handleInputChange} placeholder="Paste the full job ad here." className="w-full h-48 px-7 py-5 bg-slate-50 border border-slate-100 rounded-[2.5rem] focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all font-medium text-slate-700 resize-none shadow-inner leading-relaxed" />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center pt-4">
-                     <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest ml-1">Ref. Previous Resume (Optional PDF)</label>
-                        <div onClick={() => fileInputRef.current?.click()} className={`w-full py-6 border border-slate-100 rounded-[1.5rem] flex flex-col items-center justify-center cursor-pointer transition-all bg-slate-50/50 hover:bg-slate-50 ${resumeFile ? 'border-indigo-200' : ''}`}>
-                          <input type="file" ref={fileInputRef} onChange={(e) => setResumeFile(e.target.files?.[0] || null)} className="hidden" accept=".pdf" />
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                            {resumeFile ? resumeFile.name : 'Click to Reference Old Resume'}
-                          </span>
-                        </div>
-                     </div>
-                     <div className="bg-indigo-600/90 p-6 rounded-[2rem] shadow-xl text-white flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center font-black text-sm">AI</div>
-                        <div>
-                          <p className="text-[10px] font-black uppercase tracking-widest leading-none">Smart Synthesis Active</p>
-                        </div>
-                     </div>
-                  </div>
-
-                  {error && <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 font-bold text-[10px] uppercase tracking-widest text-center shadow-sm">{error}</div>}
-
-                  <div className="pt-10 flex flex-col items-center gap-6">
-                    <button onClick={handleGenerate} disabled={isGenerating} className={`w-full max-md py-6 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-2xl hover:bg-black hover:-translate-y-1 transition-all flex items-center justify-center ${isGenerating ? 'opacity-50' : ''}`}>
-                      {isGenerating ? 'Architecting...' : 'Synthesize Master Resume'}
-                    </button>
-                    <button onClick={() => setStep(1)} className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300 hover:text-slate-900 transition-colors">Abort & Return</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
