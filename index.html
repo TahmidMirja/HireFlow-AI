@@ -68,6 +68,10 @@
           background: #94a3b8;
         }
     </style>
+    <script>
+      // Shim process.env for React in browser environments
+      window.process = { env: { NODE_ENV: 'production' } };
+    </script>
 <script type="importmap">
 {
   "imports": {
